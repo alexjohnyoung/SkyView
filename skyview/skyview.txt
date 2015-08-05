@@ -1,0 +1,9 @@
+"skyview"
+{
+	"base"		"base"
+	"title"		"SkyView"
+	"maps"		""
+	"menusystem"	"1"
+	"workshopid"	""
+
+}
