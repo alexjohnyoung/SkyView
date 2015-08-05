@@ -28,6 +28,11 @@ function SkyView:ShowFirstScreen(ply)
 	net.Send(ply)
 end 
 
+function SkyView:ReflectVector( vec, normal, bounce )
+return bounce * ( -2 * ( vec:Dot( normal ) ) * normal + vec );
+end
+
+
 //
 
 
@@ -80,16 +85,11 @@ function GM:KeyPress(ply, key)
 				local ent = data.HitEntity 
 				if !ent:IsWorld() then 
 					if ent.MeShield then 
-						print("DONE")
-						local OldVelocity = data.OurOldVelocity
-						local LastSpeed = math.max(OldVelocity:Length(), data.Speed) 
-						local physobj = prop:GetPhysicsObject()
-						local NewVelocity = physobj:GetVelocity()
-						NewVelocity:Normalize()
-						local TargetVelocity = NewVelocity * LastSpeed * 2
-						physobj:SetVelocity(TargetVelocity)
+						local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, 1)
+						prop:SetVelocity(vel)
 					end 
 				elseif ent:IsWorld() then 
+					prop:Remove()
 				end 
 			end )
 
