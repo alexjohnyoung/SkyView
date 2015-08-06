@@ -63,6 +63,11 @@ local Models =
 //Base Functions
 
 function GM:PlayerInitialSpawn(ply)
+	if SkyView.Config.FirstPerson then
+    	ply:SetWalkSpeed(700)
+        ply:SetRunSpeed(600)
+        ply:SetGravity(0.2)
+    end
 	ply:SetModel(table.Random(Models))
 	ply.ShieldMade = false 
 	ply.Shield = nil 
@@ -81,28 +86,33 @@ function GM:KeyPress(ply, key)
 			local prop = ents.Create("prop_physics")
 			local pos = ply:GetPos()
 			local forward = ply:GetForward()
-			prop:SetPos(ply:EyePos() + ply:GetVelocity()*0.1 + ply:GetForward()*50)
+			prop:SetPos(ply:EyePos() + ply:GetVelocity()*0.1 + ply:GetForward()*60)
 			prop:SetModel("models/Combine_Helicopter/helicopter_bomb01.mdl")
 			prop:SetColor(Color(0, 0, 0))
 			prop:Spawn()
+			local obj = prop:GetPhysicsObject()
 			prop:AddCallback("PhysicsCollide", function(prop, data)
 				local ent = data.HitEntity 
 				if !ent:IsWorld() and !string.find(ent:GetClass(), "func") then 
 					if ent.MeShield then 
-						local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, 1)
-						prop:SetVelocity(vel)
+						local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, SkyView.Config.ReflectNum)
+						obj:SetVelocity(vel)
 					end 
 				elseif ent:IsWorld() or string.find(ent:GetClass(), "func") then 
-					prop:Remove()
+					local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, SkyView.Config.ReflectNum)
+					obj:SetVelocity(vel)
 				end 
 			end )
 
-			local obj = prop:GetPhysicsObject()
 			if SkyView.Config.FirstPerson then
-				obj:SetVelocity(ply:GetAimVector()*2000)
+				obj:SetVelocity(ply:GetAimVector()*2000) 
 			elseif !SkyView.Config.FirstPerson then 
 				obj:SetVelocity(ply:GetForward()*2000)
+				--Why we did the thing above? Because when we're in the sky view, we can't aim where we shoot.
 			end
+			timer.Simple(SkyView.Config.RemovePropTime, function()
+				prop:Remove()
+			end )
 		end 
 	end
 end 
