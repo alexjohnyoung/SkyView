@@ -1,4 +1,5 @@
 include("shared.lua")
+include("shared/sh_config.lua")
 
 surface.CreateFont("skyview_firstplayerfont", {
 	font = "Droid Sans Mono",
@@ -98,27 +99,28 @@ net.Receive("skyview_firstplayerscreen", function(ply)
 	FirstScreenText2:SizeToContents()
 end )
 
+if !SkyView.Config.FirstPerson then
+	function GM:CalcView(ply, pos, angles, fov)
+		local view = {}
+		local trace_area = {}
+		trace_area.start = ply:EyePos()
+		trace_area.endpos = ply:EyePos()+Vector(0, 0, 600)
+		trace_area.filter = ply 
+		local trace = util.TraceLine(trace_area)
+		local hitPos = trace.HitPos 
+		hitPos.z = hitPos.z*0.95
+		view.origin = Vector(hitPos.x, hitPos.y, hitPos.z)
+		local angles = ply:GetAngles()
+		view.angles = Angle(90, math.NormalizeAngle(angles.y), math.NormalizeAngle(angles.z))
+		view.fov = fov
 
-function GM:CalcView(ply, pos, angles, fov)
-	local view = {}
-	local trace_area = {}
-	trace_area.start = ply:EyePos()
-	trace_area.endpos = ply:EyePos()+Vector(0, 0, 600)
-	trace_area.filter = ply 
-	local trace = util.TraceLine(trace_area)
-	local hitPos = trace.HitPos 
-	hitPos.z = hitPos.z*0.95
-	view.origin = Vector(hitPos.x, hitPos.y, hitPos.z)
-	local angles = ply:GetAngles()
-	view.angles = Angle(90, math.NormalizeAngle(angles.y), math.NormalizeAngle(angles.z))
-	view.fov = fov
-
-	return view
+		return view
+	end
+	function GM:ShouldDrawLocalPlayer()
+		return true 
+	end
 end
 
-function GM:ShouldDrawLocalPlayer()
-	return true 
-end
 
 function GM:HUDShouldDraw(name)
 	if name == "CHudHealth" or name == "CHudCrosshair" then 

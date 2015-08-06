@@ -1,6 +1,5 @@
-AddCSLuaFile("shared.lua")
-include("shared.lua")
-
+AddCSLuaFile("shared.lua") --send to clients
+AddCSLuaFile("shared/sh_config.lua")
 //make dirs to access later
 file.CreateDir("skyview")
 file.CreateDir("skyview/players")
@@ -11,7 +10,12 @@ util.AddNetworkString("skyview_firstplayerscreen")
 //
 
 
-SkyView = {}
+--Gamemode Includes
+include("shared/sh_config.lua") --load our config file
+include("shared.lua") --load shared.lua file
+//
+
+
 
 //SkyView Functions
 
@@ -83,18 +87,22 @@ function GM:KeyPress(ply, key)
 			prop:Spawn()
 			prop:AddCallback("PhysicsCollide", function(prop, data)
 				local ent = data.HitEntity 
-				if !ent:IsWorld() then 
+				if !ent:IsWorld() and !string.find(ent:GetClass(), "func") then 
 					if ent.MeShield then 
 						local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, 1)
 						prop:SetVelocity(vel)
 					end 
-				elseif ent:IsWorld() then 
+				elseif ent:IsWorld() or string.find(ent:GetClass(), "func") then 
 					prop:Remove()
 				end 
 			end )
 
 			local obj = prop:GetPhysicsObject()
-			obj:SetVelocity(ply:GetForward()*1000)
+			if SkyView.Config.FirstPerson then
+				obj:SetVelocity(ply:GetAimVector()*2000)
+			elseif !SkyView.Config.FirstPerson then 
+				obj:SetVelocity(ply:GetForward()*2000)
+			end
 		end 
 	end
 end 
@@ -105,7 +113,7 @@ function GM:Think()
 			if !v.ShieldMade then
 				v.ShieldMade = true 
 				local shield = ents.Create("prop_physics")
-				shield:SetPos(v:EyePos()+v:GetVelocity()*0.1+v:GetForward()*50)
+				shield:SetPos(v:EyePos()+v:GetForward()*50)
 				shield:SetColor(Color(0, 0, 0))
 				shield:SetAngles(v:GetAngles())
 				shield:SetModel("models/props_interiors/VendingMachineSoda01a_door.mdl")
@@ -118,7 +126,7 @@ function GM:Think()
 			v.ShieldMade = false 
 		end 
 		if v.ShieldMade and v.Shield != nil then
-			v.Shield:SetPos(v:EyePos()+v:GetVelocity()*0.1+v:GetForward()*50)
+			v.Shield:SetPos(v:EyePos()+v:GetForward()*50)
 			v.Shield:SetAngles(v:GetAngles())
 		end
 	end 
