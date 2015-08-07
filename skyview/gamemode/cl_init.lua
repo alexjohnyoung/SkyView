@@ -128,3 +128,17 @@ function GM:HUDShouldDraw(name)
 	end 
 	return true 
 end 
+
+function GM:RenderScreenspaceEffects()
+	local tab = {}
+	tab[ "$pp_colour_addr" ] = 0
+	tab[ "$pp_colour_addg" ] = 0
+	tab[ "$pp_colour_addb" ] = 0
+	tab[ "$pp_colour_brightness" ] = 0
+	tab[ "$pp_colour_contrast" ] = 1
+	tab[ "$pp_colour_colour" ] = 1
+	tab[ "$pp_colour_mulr" ] = 0
+	tab[ "$pp_colour_mulg" ] = 1
+	tab[ "$pp_colour_mulb" ] = 1 
+	DrawColorModify(tab)
+end 

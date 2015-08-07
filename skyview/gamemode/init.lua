@@ -16,30 +16,7 @@ include("shared.lua") --load shared.lua file
 //
 
 
-
-//SkyView Functions
-
-function SkyView:PlayerExists(ply) --check if player exists
-	return file.Exists("skyview/players/"..ply.FileID..".txt", "DATA")
-end
-
-function SkyView:CreatePlayer(ply) --create player func
-	file.Write("skyview/players/"..ply.FileID..".txt", " ")
-end 
-
-function SkyView:ShowFirstScreen(ply)
-	net.Start("skyview_firstplayerscreen")
-	net.Send(ply)
-end 
-
-function SkyView:ReflectVector( vec, normal, bounce )
-return bounce * ( -2 * ( vec:Dot( normal ) ) * normal + vec );
-end
-
-
-//
-
-
+//Some tables
 //Model Table
 local Models = 
 {
@@ -60,6 +37,68 @@ local Models =
 }
 //
 
+//Prop Models Table
+local PropModels =
+{
+ "models/props_c17/FurnitureBathtub001a.mdl",
+ "models/props_borealis/bluebarrel001.mdl",
+ "models/props_c17/furnitureStove001a.mdl",
+ "models/props_c17/FurnitureFridge001a.mdl",
+ "models/props_c17/oildrum001.mdl",
+ "models/props_c17/oildrum001_explosive.mdl",
+ "models/props_junk/PlasticCrate01a.mdl",
+ "models/props_c17/FurnitureSink001a.mdl",
+ "models/props_c17/FurnitureCouch001a.mdl",
+ "models/Combine_Helicopter/helicopter_bomb01.mdl",
+ "models/props_combine/breenglobe.mdl",
+ "models/props_combine/breenchair.mdl",
+ "models/props_docks/dock01_cleat01a.mdl",
+ "models/props_interiors/VendingMachineSoda01a.mdl",
+ "models/props_interiors/Furniture_Couch01a.mdl",
+ "models/props_junk/plasticbucket001a.mdl",
+ "models/props_lab/filecabinet02.mdl",
+ "models/props_trainstation/trashcan_indoor001a.mdl",
+ "models/props_vehicles/apc_tire001.mdl",
+ "models/props_wasteland/light_spotlight01_lamp.mdl",
+ "models/props_junk/TrafficCone001a.mdl"
+}
+
+
+//When a shield is hit sounds
+local ShieldHitSounds =
+{
+	"ambient/energy/zap5.wav",
+	"ambient/energy/zap6.wav",
+	"ambient/energy/zap7.wav",
+	"ambient/energy/zap8.wav",
+	"ambient/energy/zap9.wav"
+}
+//
+
+//SkyView Functions
+
+function SkyView:PlayerExists(ply) --check if player exists
+	return file.Exists("skyview/players/"..ply.FileID..".txt", "DATA")
+end
+
+function SkyView:CreatePlayer(ply) --create player func
+	file.Write("skyview/players/"..ply.FileID..".txt", " ")
+end 
+
+function SkyView:ShowFirstScreen(ply)
+	net.Start("skyview_firstplayerscreen")
+	net.Send(ply)
+end 
+
+function SkyView:ReflectVector( vec, normal, bounce )
+return bounce * ( -2 * ( vec:Dot( normal ) ) * normal + vec );
+end
+
+function SkyView:RandomShieldSound()
+	local soundO, key = table.Random(ShieldHitSounds)
+	return soundO
+end
+
 //Base Functions
 
 function GM:PlayerInitialSpawn(ply)
@@ -67,9 +106,13 @@ function GM:PlayerInitialSpawn(ply)
     	ply:SetWalkSpeed(700)
         ply:SetRunSpeed(600)
         ply:SetGravity(0.2)
-    end
+       end
 	ply:SetModel(table.Random(Models))
-	ply.ShieldMade = false 
+	ply.ShieldMade = false
+	ply.PropCD = 0
+	ply.InAir = false  
+	ply.Jumped = false 
+	ply.JumpTime = 0
 	ply.Shield = nil 
 	ply.FileID = ply:SteamID():gsub(":", "-")
 	if !SkyView:PlayerExists(ply) then 
@@ -79,65 +122,92 @@ function GM:PlayerInitialSpawn(ply)
 	end
 end 
 
+function GM:PlayerSpawn(ply)
+	ply.PropCD = CurTime()+0.2 
+end 
 
 function GM:KeyPress(ply, key)
 	if ply:Alive() then
-		if key == IN_ATTACK and !ply.ShieldMade then 
-			local prop = ents.Create("prop_physics")
-			local pos = ply:GetPos()
-			local forward = ply:GetForward()
-			prop:SetPos(ply:EyePos() + ply:GetVelocity()*0.1 + ply:GetForward()*60)
-			prop:SetModel("models/Combine_Helicopter/helicopter_bomb01.mdl")
-			prop:SetColor(Color(0, 0, 0))
-			prop:Spawn()
-			local obj = prop:GetPhysicsObject()
-			prop:AddCallback("PhysicsCollide", function(prop, data)
-				local ent = data.HitEntity 
-				if !ent:IsWorld() and !string.find(ent:GetClass(), "func") then 
-					if ent.MeShield then 
-						local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, SkyView.Config.ReflectNum)
+		print(ply.PropCD)
+		if key == IN_ATTACK and !ply.ShieldMade then
+			if ply.PropCD == 0 or ply.PropCD > 0 and CurTime() >= ply.PropCD then
+				local prop = ents.Create("prop_physics")
+				local pos = ply:GetPos()
+				local forward = ply:GetForward()
+				prop:SetPos(ply:EyePos() + ply:GetVelocity()*0.1 + forward*60)
+				prop:SetModel(table.Random(PropModels))
+				prop:Spawn()
+				local obj = prop:GetPhysicsObject()
+				prop:AddCallback("PhysicsCollide", function(prop, data)
+					local ent = data.HitEntity 
+					local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, SkyView.Config.ReflectNum)
+					if !ent:IsWorld() and !string.find(ent:GetClass(), "func") then 
+						if ent.MeShield then 
+							ent:EmitSound(SkyView:RandomShieldSound())
+							obj:SetVelocity(vel)
+						end 
+					elseif ent:IsWorld() or string.find(ent:GetClass(), "func") then 
 						obj:SetVelocity(vel)
 					end 
-				elseif ent:IsWorld() or string.find(ent:GetClass(), "func") then 
-					local vel = SkyView:ReflectVector(data.OurOldVelocity, data.HitNormal, SkyView.Config.ReflectNum)
-					obj:SetVelocity(vel)
-				end 
-			end )
+				end )
 
-			if SkyView.Config.FirstPerson then
-				obj:SetVelocity(ply:GetAimVector()*2000) 
-			elseif !SkyView.Config.FirstPerson then 
-				obj:SetVelocity(ply:GetForward()*2000)
-				--Why we did the thing above? Because when we're in the sky view, we can't aim where we shoot.
-			end
-			timer.Simple(SkyView.Config.RemovePropTime, function()
-				prop:Remove()
-			end )
-		end 
+				if SkyView.Config.FirstPerson then
+					obj:SetVelocity(ply:GetAimVector()*2000) 
+				elseif !SkyView.Config.FirstPerson then 
+					obj:SetVelocity(ply:GetForward()*2000)
+					--Why we did the thing above? Because when we're in the sky view, we can't aim where we shoot.
+				end
+				timer.Simple(SkyView.Config.RemovePropTime, function()
+					if IsValid(prop) then prop:Remove() end
+				end )
+				ply.PropCD = CurTime()+SkyView.Config.PropSpawnCoolDown
+			end 
+		end
 	end
 end 
 
 function GM:Think()
 	for k,v in pairs(player.GetAll()) do 
-		if v:Alive() and v:KeyDown(IN_ATTACK2) then 
-			if !v.ShieldMade then
-				v.ShieldMade = true 
-				local shield = ents.Create("prop_physics")
-				shield:SetPos(v:EyePos()+v:GetForward()*50)
-				shield:SetColor(Color(0, 0, 0))
-				shield:SetAngles(v:GetAngles())
-				shield:SetModel("models/props_interiors/VendingMachineSoda01a_door.mdl")
-				shield:Spawn()
-				shield.MeShield = true 
-				v.Shield = shield 
+		if v:Alive() then
+			if v:KeyDown(IN_ATTACK2) then
+				if !v.ShieldMade then
+					v.ShieldMade = true 
+					local shield = ents.Create("prop_physics")
+					shield:SetPos(v:EyePos()+v:GetForward()*50)
+					shield:SetAngles(v:GetAngles())
+					shield:SetModel("models/props_interiors/VendingMachineSoda01a_door.mdl")
+					shield:Spawn()
+					local obj = shield:GetPhysicsObject()
+					obj:SetMass(90000)
+					shield.MeShield = true 
+					v.Shield = shield 
+				end
+			elseif !v:KeyDown(IN_ATTACK2) and v.ShieldMade then 
+				v.Shield:Remove()
+				v.ShieldMade = false 
+			end 
+			if v.ShieldMade and v.Shield != nil then
+				v.Shield:SetPos(v:EyePos()+v:GetForward()*50)
+				v.Shield:SetAngles(v:GetAngles())
 			end
-		elseif !v:KeyDown(IN_ATTACK2) and v.ShieldMade then 
-			v.Shield:Remove()
-			v.ShieldMade = false 
-		end 
-		if v.ShieldMade and v.Shield != nil then
-			v.Shield:SetPos(v:EyePos()+v:GetForward()*50)
-			v.Shield:SetAngles(v:GetAngles())
+			if v:KeyPressed(IN_JUMP) and !v:IsOnGround() and !v.InAir then 
+				v.InAir = true 
+			end 
+			if v:KeyPressed(IN_JUMP) and v.InAir and !v.Jumped then 
+				if v.JumpTime == 0 then 
+					v.JumpTime = CurTime()+SkyView.Config.DoubleJumpTime
+				 end 
+				 if CurTime() >= v.JumpTime and v.InAir then 
+				 	v.Jumped = true 
+				 	v:SetVelocity(Vector(0,0,200))
+				 	v.JumpTime = 0
+				 end 
+			end 
+			if v:OnGround() then 
+				v.InAir = false 
+				v.Jumped = false 
+				v.JumpTime = 0
+			end
 		end
 	end 
 end 
